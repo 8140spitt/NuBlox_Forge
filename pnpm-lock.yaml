@@ -16,6 +16,9 @@ importers:
       '@nublox/import-engine':
         specifier: workspace:*
         version: link:../../packages/import-engine
+      '@nublox/record-engine':
+        specifier: workspace:*
+        version: link:../../packages/record-engine
       '@nublox/rich-client-engine':
         specifier: workspace:*
         version: link:../../packages/rich-client-engine
@@ -52,6 +55,18 @@ importers:
       '@nublox/core':
         specifier: workspace:*
         version: link:../core
+      '@nublox/schema-engine':
+        specifier: workspace:*
+        version: link:../schema-engine
+
+  packages/record-engine:
+    dependencies:
+      '@nublox/core':
+        specifier: workspace:*
+        version: link:../core
+      '@nublox/import-engine':
+        specifier: workspace:*
+        version: link:../import-engine
       '@nublox/schema-engine':
         specifier: workspace:*
         version: link:../schema-engine
