@@ -11,11 +11,13 @@
   import {
     createPersistenceSnapshot,
     generateMysqlBootstrapScript,
-    type PersistenceSnapshot
+    type LoadPersistenceSnapshotResult,
+    type PersistenceSnapshot,
+    type SavePersistenceSnapshotResult
   } from '@nublox/persistence-engine';
   import type { FieldSchema } from '@nublox/schema-engine';
 
-  const localStorageKey = 'nublox-forge:v0.4:snapshot';
+  const localStorageKey = 'nublox-forge:v0.5:snapshot';
 
   const sampleCsv = `Project Name,Owner,Status,Due Date,Budget,Risk Level
 Website Relaunch,Stephen,In Progress,2026-07-18,12500,Medium
@@ -32,7 +34,7 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
   let editRecordId = $state<string | null>(null);
   let editBuffer = $state<Record<string, string>>({});
   let auditEvents = $state<AuditEvent[]>([]);
-  let persistenceMessage = $state('Not saved locally yet.');
+  let persistenceMessage = $state('Not saved yet.');
 
   let parsed = $derived(parseCsv(csvText));
   let analysis = $derived(analyseCsv(parsed));
@@ -53,7 +55,7 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
       editableRecords = sourceRecords;
       auditEvents = [];
       selectedRecordId = sourceRecords[0]?.id ?? null;
-      persistenceMessage = 'CSV changed. Local runtime state reset.';
+      persistenceMessage = 'CSV changed. Runtime state reset.';
     }
   });
 
@@ -109,7 +111,7 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
 
     if (auditEvent) {
       auditEvents = [auditEvent, ...auditEvents];
-      persistenceMessage = 'Record saved in memory. Local/MySQL export snapshot has changed.';
+      persistenceMessage = 'Record saved in memory. Snapshot changed.';
     } else {
       persistenceMessage = 'No field changes detected.';
     }
@@ -117,29 +119,62 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
 
   function saveSnapshotLocally() {
     localStorage.setItem(localStorageKey, JSON.stringify(snapshot));
-    persistenceMessage = `Saved locally at ${new Date().toLocaleTimeString()}.`;
+    persistenceMessage = `Saved to browser storage at ${new Date().toLocaleTimeString()}.`;
   }
 
   function loadSnapshotLocally() {
     const raw = localStorage.getItem(localStorageKey);
 
     if (!raw) {
-      persistenceMessage = 'No local snapshot found.';
+      persistenceMessage = 'No browser snapshot found.';
       return;
     }
 
-    const parsedSnapshot = JSON.parse(raw) as PersistenceSnapshot;
+    applySnapshot(JSON.parse(raw) as PersistenceSnapshot, 'browser');
+  }
 
-    if (parsedSnapshot.version !== 1) {
-      persistenceMessage = 'Local snapshot version is not supported.';
+  async function saveSnapshotToServer() {
+    const response = await fetch('/api/snapshots', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify(snapshot)
+    });
+
+    const result = await response.json() as SavePersistenceSnapshotResult;
+
+    if (!result.ok) {
+      persistenceMessage = `Server save failed: ${result.error}`;
       return;
     }
 
-    editableRecords = parsedSnapshot.records;
-    auditEvents = parsedSnapshot.auditEvents;
-    selectedRecordId = parsedSnapshot.records[0]?.id ?? null;
+    persistenceMessage = `Saved to server adapter at ${new Date(result.savedAt).toLocaleTimeString()}.`;
+  }
+
+  async function loadSnapshotFromServer() {
+    const response = await fetch(`/api/snapshots?appId=${encodeURIComponent(appSchema.id)}`);
+    const result = await response.json() as LoadPersistenceSnapshotResult;
+
+    if (!result.ok) {
+      persistenceMessage = `Server load failed: ${result.error}`;
+      return;
+    }
+
+    applySnapshot(result.snapshot, 'server');
+  }
+
+  function applySnapshot(nextSnapshot: PersistenceSnapshot, source: 'browser' | 'server') {
+    if (nextSnapshot.version !== 1) {
+      persistenceMessage = 'Snapshot version is not supported.';
+      return;
+    }
+
+    editableRecords = nextSnapshot.records;
+    auditEvents = nextSnapshot.auditEvents;
+    selectedRecordId = nextSnapshot.records[0]?.id ?? null;
     editRecordId = null;
-    persistenceMessage = `Loaded local snapshot from ${new Date(parsedSnapshot.capturedAt).toLocaleString()}.`;
+    persistenceMessage = `Loaded ${source} snapshot captured at ${new Date(nextSnapshot.capturedAt).toLocaleString()}.`;
   }
 
   function copyMysqlSql() {
@@ -198,9 +233,9 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
 <main class="page">
   <div class="shell">
     <section class="hero">
-      <div class="kicker">NuBlox Forge v0.4</div>
-      <h1>Persistent generated workbench.</h1>
-      <p class="lead">Generate records, edit them, capture audit events, save/load a local runtime snapshot and export a MySQL bootstrap script.</p>
+      <div class="kicker">NuBlox Forge v0.5</div>
+      <h1>Server-backed generated workbench.</h1>
+      <p class="lead">Generate records, edit them, capture audit events, save/load through a SvelteKit server adapter and export a MySQL bootstrap script.</p>
     </section>
 
     <section class="grid">
@@ -214,8 +249,10 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
             <button type="button" class="secondary" onclick={() => activePanel = 'workbench'}>Workbench</button>
             <button type="button" class="secondary" onclick={() => activePanel = 'json'}>JSON</button>
             <button type="button" class="secondary" onclick={() => activePanel = 'sql'}>MySQL SQL</button>
-            <button type="button" class="secondary" onclick={saveSnapshotLocally}>Save local</button>
-            <button type="button" class="secondary" onclick={loadSnapshotLocally}>Load local</button>
+            <button type="button" class="secondary" onclick={saveSnapshotLocally}>Save browser</button>
+            <button type="button" class="secondary" onclick={loadSnapshotLocally}>Load browser</button>
+            <button type="button" class="secondary" onclick={saveSnapshotToServer}>Save server</button>
+            <button type="button" class="secondary" onclick={loadSnapshotFromServer}>Load server</button>
           </div>
           <p class="lead">{persistenceMessage}</p>
         </div>
@@ -225,7 +262,7 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
         <div class="stat-grid">
           <div class="stat"><strong>{summary.totalRecords}</strong><span>records</span></div>
           <div class="stat"><strong>{auditEvents.length}</strong><span>audit events</span></div>
-          <div class="stat"><strong>5</strong><span>MySQL tables</span></div>
+          <div class="stat"><strong>API</strong><span>server adapter</span></div>
         </div>
 
         {#if activePanel === 'json'}
