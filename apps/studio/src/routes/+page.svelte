@@ -4,12 +4,18 @@
   import {
     createRecordsFromCsv,
     summariseRecords,
-    getRecordDisplayValue,
     type GeneratedRecord,
     type RecordValue
   } from '@nublox/record-engine';
   import { createUpdateAuditEvent, formatAuditValue, type AuditEvent } from '@nublox/audit-engine';
+  import {
+    createPersistenceSnapshot,
+    generateMysqlBootstrapScript,
+    type PersistenceSnapshot
+  } from '@nublox/persistence-engine';
   import type { FieldSchema } from '@nublox/schema-engine';
+
+  const localStorageKey = 'nublox-forge:v0.4:snapshot';
 
   const sampleCsv = `Project Name,Owner,Status,Due Date,Budget,Risk Level
 Website Relaunch,Stephen,In Progress,2026-07-18,12500,Medium
@@ -20,12 +26,13 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
   let csvText = $state(sampleCsv);
   let appName = $state('Project Control');
   let selectedRecordId = $state<string | null>(null);
-  let showJson = $state(false);
+  let activePanel = $state<'workbench' | 'json' | 'sql'>('workbench');
   let sourceSignature = $state('');
   let editableRecords = $state<GeneratedRecord[]>([]);
   let editRecordId = $state<string | null>(null);
   let editBuffer = $state<Record<string, string>>({});
   let auditEvents = $state<AuditEvent[]>([]);
+  let persistenceMessage = $state('Not saved locally yet.');
 
   let parsed = $derived(parseCsv(csvText));
   let analysis = $derived(analyseCsv(parsed));
@@ -35,6 +42,8 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
   let sourceRecords = $derived(createRecordsFromCsv({ csv: parsed, appSchema }));
   let summary = $derived(summariseRecords(appSchema, editableRecords));
   let selectedRecord = $derived(editableRecords.find((record) => record.id === selectedRecordId) ?? editableRecords[0] ?? null);
+  let snapshot = $derived(createPersistenceSnapshot({ app: appSchema, records: editableRecords, auditEvents }));
+  let mysqlSql = $derived(generateMysqlBootstrapScript(snapshot));
 
   $effect(() => {
     const nextSignature = JSON.stringify(sourceRecords.map((record) => ({ id: record.id, title: record.title, data: record.data })));
@@ -44,6 +53,7 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
       editableRecords = sourceRecords;
       auditEvents = [];
       selectedRecordId = sourceRecords[0]?.id ?? null;
+      persistenceMessage = 'CSV changed. Local runtime state reset.';
     }
   });
 
@@ -57,6 +67,7 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
   function resetSample() {
     csvText = sampleCsv;
     appName = 'Project Control';
+    activePanel = 'workbench';
   }
 
   function updateEditBuffer(fieldName: string, value: string) {
@@ -98,7 +109,42 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
 
     if (auditEvent) {
       auditEvents = [auditEvent, ...auditEvents];
+      persistenceMessage = 'Record saved in memory. Local/MySQL export snapshot has changed.';
+    } else {
+      persistenceMessage = 'No field changes detected.';
     }
+  }
+
+  function saveSnapshotLocally() {
+    localStorage.setItem(localStorageKey, JSON.stringify(snapshot));
+    persistenceMessage = `Saved locally at ${new Date().toLocaleTimeString()}.`;
+  }
+
+  function loadSnapshotLocally() {
+    const raw = localStorage.getItem(localStorageKey);
+
+    if (!raw) {
+      persistenceMessage = 'No local snapshot found.';
+      return;
+    }
+
+    const parsedSnapshot = JSON.parse(raw) as PersistenceSnapshot;
+
+    if (parsedSnapshot.version !== 1) {
+      persistenceMessage = 'Local snapshot version is not supported.';
+      return;
+    }
+
+    editableRecords = parsedSnapshot.records;
+    auditEvents = parsedSnapshot.auditEvents;
+    selectedRecordId = parsedSnapshot.records[0]?.id ?? null;
+    editRecordId = null;
+    persistenceMessage = `Loaded local snapshot from ${new Date(parsedSnapshot.capturedAt).toLocaleString()}.`;
+  }
+
+  function copyMysqlSql() {
+    navigator.clipboard?.writeText(mysqlSql);
+    persistenceMessage = 'Copied MySQL bootstrap SQL to clipboard.';
   }
 
   function recordToEditBuffer(record: GeneratedRecord): Record<string, string> {
@@ -152,9 +198,9 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
 <main class="page">
   <div class="shell">
     <section class="hero">
-      <div class="kicker">NuBlox Forge v0.3</div>
-      <h1>Editable generated workbench.</h1>
-      <p class="lead">Paste a CSV, generate records, edit them in memory and capture audit events every time a record is saved.</p>
+      <div class="kicker">NuBlox Forge v0.4</div>
+      <h1>Persistent generated workbench.</h1>
+      <p class="lead">Generate records, edit them, capture audit events, save/load a local runtime snapshot and export a MySQL bootstrap script.</p>
     </section>
 
     <section class="grid">
@@ -165,20 +211,33 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
           <textarea bind:value={csvText} spellcheck="false"></textarea>
           <div class="actions">
             <button type="button" onclick={resetSample}>Load sample</button>
-            <button type="button" class="secondary" onclick={() => showJson = !showJson}>{showJson ? 'Show workbench' : 'Show JSON'}</button>
+            <button type="button" class="secondary" onclick={() => activePanel = 'workbench'}>Workbench</button>
+            <button type="button" class="secondary" onclick={() => activePanel = 'json'}>JSON</button>
+            <button type="button" class="secondary" onclick={() => activePanel = 'sql'}>MySQL SQL</button>
+            <button type="button" class="secondary" onclick={saveSnapshotLocally}>Save local</button>
+            <button type="button" class="secondary" onclick={loadSnapshotLocally}>Load local</button>
           </div>
+          <p class="lead">{persistenceMessage}</p>
         </div>
       </div>
 
       <div class="preview">
         <div class="stat-grid">
-          <div class="stat"><strong>{summary.totalRecords}</strong><span>records generated</span></div>
-          <div class="stat"><strong>{analysis.columns.length}</strong><span>fields detected</span></div>
+          <div class="stat"><strong>{summary.totalRecords}</strong><span>records</span></div>
           <div class="stat"><strong>{auditEvents.length}</strong><span>audit events</span></div>
+          <div class="stat"><strong>5</strong><span>MySQL tables</span></div>
         </div>
 
-        {#if showJson}
-          <div class="card"><div class="card-body"><pre>{JSON.stringify({ appSchema, manifest, editableRecords, auditEvents }, null, 2)}</pre></div></div>
+        {#if activePanel === 'json'}
+          <div class="card"><div class="card-body"><pre>{JSON.stringify({ appSchema, manifest, snapshot }, null, 2)}</pre></div></div>
+        {:else if activePanel === 'sql'}
+          <div class="card">
+            <div class="card-header"><p class="card-title">Generated MySQL bootstrap SQL</p></div>
+            <div class="card-body">
+              <div class="actions"><button type="button" onclick={copyMysqlSql}>Copy SQL</button></div>
+              <pre>{mysqlSql}</pre>
+            </div>
+          </div>
         {:else}
           <div class="workbench card">
             <div class="workbench-topbar">
