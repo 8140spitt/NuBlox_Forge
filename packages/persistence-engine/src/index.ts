@@ -10,6 +10,45 @@ export type PersistenceSnapshot = {
   auditEvents: AuditEvent[];
 };
 
+export type SavePersistenceSnapshotResult =
+  | {
+      ok: true;
+      snapshot: PersistenceSnapshot;
+      savedAt: string;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
+export type LoadPersistenceSnapshotResult =
+  | {
+      ok: true;
+      snapshot: PersistenceSnapshot;
+      loadedAt: string;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
+export type ClearPersistenceSnapshotResult =
+  | {
+      ok: true;
+      clearedAt: string;
+      clearedCount: number;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
+export type PersistenceAdapter = {
+  saveSnapshot(snapshot: PersistenceSnapshot): Promise<SavePersistenceSnapshotResult>;
+  loadLatestSnapshot(appId?: string): Promise<LoadPersistenceSnapshotResult>;
+  clearSnapshots(appId?: string): Promise<ClearPersistenceSnapshotResult>;
+};
+
 export type CreatePersistenceSnapshotInput = {
   app: AppSchema;
   records: GeneratedRecord[];
@@ -25,6 +64,16 @@ export function createPersistenceSnapshot(input: CreatePersistenceSnapshotInput)
     records: input.records,
     auditEvents: input.auditEvents
   };
+}
+
+export function isPersistenceSnapshot(value: unknown): value is PersistenceSnapshot {
+  if (!isObject(value)) return false;
+  if (value.version !== 1) return false;
+  if (typeof value.capturedAt !== 'string') return false;
+  if (!isObject(value.app)) return false;
+  if (!Array.isArray(value.records)) return false;
+  if (!Array.isArray(value.auditEvents)) return false;
+  return true;
 }
 
 export function generateMysqlBootstrapScript(snapshot: PersistenceSnapshot): string {
@@ -209,4 +258,8 @@ function sqlString(value: string): string {
     .replace(/\\/g, '\\\\')
     .replace(/'/g, "''")
     .replace(/\u0000/g, '')}'`;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
