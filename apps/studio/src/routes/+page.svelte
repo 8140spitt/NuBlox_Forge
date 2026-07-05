@@ -1,7 +1,15 @@
 <script lang="ts">
   import { parseCsv, analyseCsv, generateAppSchemaFromImport } from '@nublox/import-engine';
   import { createRichClientManifest } from '@nublox/rich-client-engine';
-  import { createRecordsFromCsv, summariseRecords, getRecordDisplayValue } from '@nublox/record-engine';
+  import {
+    createRecordsFromCsv,
+    summariseRecords,
+    getRecordDisplayValue,
+    type GeneratedRecord,
+    type RecordValue
+  } from '@nublox/record-engine';
+  import { createUpdateAuditEvent, formatAuditValue, type AuditEvent } from '@nublox/audit-engine';
+  import type { FieldSchema } from '@nublox/schema-engine';
 
   const sampleCsv = `Project Name,Owner,Status,Due Date,Budget,Risk Level
 Website Relaunch,Stephen,In Progress,2026-07-18,12500,Medium
@@ -13,26 +21,119 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
   let appName = $state('Project Control');
   let selectedRecordId = $state<string | null>(null);
   let showJson = $state(false);
+  let sourceSignature = $state('');
+  let editableRecords = $state<GeneratedRecord[]>([]);
+  let editRecordId = $state<string | null>(null);
+  let editBuffer = $state<Record<string, string>>({});
+  let auditEvents = $state<AuditEvent[]>([]);
 
   let parsed = $derived(parseCsv(csvText));
   let analysis = $derived(analyseCsv(parsed));
   let appSchema = $derived(generateAppSchemaFromImport({ appName, importAnalysis: analysis }));
   let entity = $derived(appSchema.entities[0] ?? null);
   let manifest = $derived(createRichClientManifest(appSchema));
-  let records = $derived(createRecordsFromCsv({ csv: parsed, appSchema }));
-  let summary = $derived(summariseRecords(appSchema, records));
-  let selectedRecord = $derived(records.find((record) => record.id === selectedRecordId) ?? records[0] ?? null);
+  let sourceRecords = $derived(createRecordsFromCsv({ csv: parsed, appSchema }));
+  let summary = $derived(summariseRecords(appSchema, editableRecords));
+  let selectedRecord = $derived(editableRecords.find((record) => record.id === selectedRecordId) ?? editableRecords[0] ?? null);
 
   $effect(() => {
-    if (!selectedRecordId && records[0]) selectedRecordId = records[0].id;
-    if (selectedRecordId && !records.some((record) => record.id === selectedRecordId)) {
-      selectedRecordId = records[0]?.id ?? null;
+    const nextSignature = JSON.stringify(sourceRecords.map((record) => ({ id: record.id, title: record.title, data: record.data })));
+
+    if (nextSignature !== sourceSignature) {
+      sourceSignature = nextSignature;
+      editableRecords = sourceRecords;
+      auditEvents = [];
+      selectedRecordId = sourceRecords[0]?.id ?? null;
+    }
+  });
+
+  $effect(() => {
+    if (selectedRecord && selectedRecord.id !== editRecordId) {
+      editRecordId = selectedRecord.id;
+      editBuffer = recordToEditBuffer(selectedRecord);
     }
   });
 
   function resetSample() {
     csvText = sampleCsv;
     appName = 'Project Control';
+  }
+
+  function updateEditBuffer(fieldName: string, value: string) {
+    editBuffer = {
+      ...editBuffer,
+      [fieldName]: value
+    };
+  }
+
+  function saveSelectedRecord() {
+    if (!selectedRecord || !entity) return;
+
+    const data: Record<string, RecordValue> = { ...selectedRecord.data };
+
+    for (const field of entity.fields) {
+      data[field.name] = coerceEditableValue(editBuffer[field.name] ?? '', field);
+    }
+
+    const titleField = findTitleField(entity.fields);
+    const title = titleField ? stringifyRecordValue(data[titleField.name]) || selectedRecord.title : selectedRecord.title;
+
+    const updatedRecord: GeneratedRecord = {
+      ...selectedRecord,
+      title,
+      data,
+      updatedAt: new Date().toISOString()
+    };
+
+    const labelsByFieldName = Object.fromEntries(entity.fields.map((field) => [field.name, field.label]));
+    const auditEvent = createUpdateAuditEvent({
+      before: selectedRecord,
+      after: updatedRecord,
+      labelsByFieldName,
+      actor: 'Local user'
+    });
+
+    editableRecords = editableRecords.map((record) => record.id === updatedRecord.id ? updatedRecord : record);
+    editBuffer = recordToEditBuffer(updatedRecord);
+
+    if (auditEvent) {
+      auditEvents = [auditEvent, ...auditEvents];
+    }
+  }
+
+  function recordToEditBuffer(record: GeneratedRecord): Record<string, string> {
+    return Object.fromEntries(
+      Object.entries(record.data).map(([fieldName, value]) => [fieldName, stringifyRecordValue(value)])
+    );
+  }
+
+  function coerceEditableValue(rawValue: string, field: FieldSchema): RecordValue {
+    const value = rawValue.trim();
+
+    if (value.length === 0) return null;
+
+    if (field.type === 'number' || field.type === 'currency') {
+      const number = Number(value.replace(/[£$,\s]/g, ''));
+      return Number.isNaN(number) ? null : number;
+    }
+
+    if (field.type === 'boolean') {
+      if (/^(true|yes|y|1)$/i.test(value)) return true;
+      if (/^(false|no|n|0)$/i.test(value)) return false;
+      return null;
+    }
+
+    return value;
+  }
+
+  function stringifyRecordValue(value: RecordValue | undefined): string {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    return String(value);
+  }
+
+  function findTitleField(fields: FieldSchema[]): FieldSchema | undefined {
+    return fields.find((field) => field.semanticRole === 'title') ?? fields.find((field) => field.type === 'text') ?? fields[0];
   }
 
   function money(value: number): string {
@@ -51,9 +152,9 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
 <main class="page">
   <div class="shell">
     <section class="hero">
-      <div class="kicker">NuBlox Forge v0.2</div>
-      <h1>Generated business workbench.</h1>
-      <p class="lead">Paste a CSV and Forge generates an app schema, records, runtime commands, dashboard summary and a workbench-style record interface.</p>
+      <div class="kicker">NuBlox Forge v0.3</div>
+      <h1>Editable generated workbench.</h1>
+      <p class="lead">Paste a CSV, generate records, edit them in memory and capture audit events every time a record is saved.</p>
     </section>
 
     <section class="grid">
@@ -73,11 +174,11 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
         <div class="stat-grid">
           <div class="stat"><strong>{summary.totalRecords}</strong><span>records generated</span></div>
           <div class="stat"><strong>{analysis.columns.length}</strong><span>fields detected</span></div>
-          <div class="stat"><strong>{summary.overdue?.count ?? 0}</strong><span>open overdue</span></div>
+          <div class="stat"><strong>{auditEvents.length}</strong><span>audit events</span></div>
         </div>
 
         {#if showJson}
-          <div class="card"><div class="card-body"><pre>{JSON.stringify({ appSchema, manifest }, null, 2)}</pre></div></div>
+          <div class="card"><div class="card-body"><pre>{JSON.stringify({ appSchema, manifest, editableRecords, auditEvents }, null, 2)}</pre></div></div>
         {:else}
           <div class="workbench card">
             <div class="workbench-topbar">
@@ -92,7 +193,7 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
             <div class="workbench-grid">
               <aside class="record-list">
                 <div class="pane-title">Records</div>
-                {#each records as record}
+                {#each editableRecords as record}
                   <button type="button" class="record-button" class:selected={record.id === selectedRecord?.id} onclick={() => selectedRecordId = record.id}>
                     <strong>{record.title}</strong>
                   </button>
@@ -100,13 +201,23 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
               </aside>
 
               <section class="record-detail">
-                <div class="pane-title">Detail</div>
+                <div class="pane-title">Editable detail</div>
                 {#if selectedRecord && entity}
                   <h2>{selectedRecord.title}</h2>
                   <div class="field-grid">
                     {#each entity.fields as field}
-                      <div class="field-card"><span>{field.label}</span><strong>{getRecordDisplayValue(selectedRecord, field) || '—'}</strong></div>
+                      <label class="field-card">
+                        <span>{field.label}</span>
+                        <input
+                          class="text-input"
+                          value={editBuffer[field.name] ?? ''}
+                          oninput={(event) => updateEditBuffer(field.name, (event.currentTarget as HTMLInputElement).value)}
+                        />
+                      </label>
                     {/each}
+                  </div>
+                  <div class="actions">
+                    <button type="button" onclick={saveSelectedRecord}>Save record</button>
                   </div>
                 {/if}
               </section>
@@ -119,6 +230,18 @@ Supplier Review,Caitlin,Complete,2026-06-21,1800,Low`;
                 {#if summary.money && summary.money.length > 0}
                   <div class="dashboard-block"><strong>Money</strong>{#each summary.money as item}<div class="bar-row"><span>{item.label}</span><b>{money(item.total)}</b></div>{/each}</div>
                 {/if}
+                <div class="dashboard-block"><strong>Audit trail</strong>
+                  {#if auditEvents.length === 0}
+                    <div class="bar-row"><span>No changes saved yet</span><b>0</b></div>
+                  {:else}
+                    {#each auditEvents as event}
+                      <div class="bar-row"><span>{event.recordTitle}</span><b>{event.changes.length}</b></div>
+                      {#each event.changes as change}
+                        <div class="bar-row"><span>{change.label}: {formatAuditValue(change.before)} → {formatAuditValue(change.after)}</span><b>edit</b></div>
+                      {/each}
+                    {/each}
+                  {/if}
+                </div>
               </aside>
             </div>
           </div>
