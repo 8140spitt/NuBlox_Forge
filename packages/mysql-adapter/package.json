@@ -11,6 +11,11 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./mysql2-executor": {
+      "types": "./src/mysql2-executor.ts",
+      "import": "./src/mysql2-executor.ts",
+      "default": "./src/mysql2-executor.ts"
     }
   },
   "dependencies": {
