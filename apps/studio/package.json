@@ -16,6 +16,7 @@
     "@nublox/rich-client-engine": "workspace:*",
     "@nublox/record-engine": "workspace:*",
     "@nublox/audit-engine": "workspace:*",
+    "@nublox/persistence-engine": "workspace:*",
     "@sveltejs/adapter-auto": "latest",
     "@sveltejs/kit": "latest",
     "@sveltejs/vite-plugin-svelte": "latest",
