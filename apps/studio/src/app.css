@@ -19,9 +19,6 @@ textarea,
 input,
 select {
   font: inherit;
-  box-sizing: content-box;
-  width: 100%;
-
 }
 
 .page {
@@ -30,7 +27,7 @@ select {
 }
 
 .shell {
-  max-width: 1180px;
+  max-width: 1360px;
   margin: 0 auto;
 }
 
@@ -55,8 +52,14 @@ h1 {
   letter-spacing: -0.05em;
 }
 
+h2 {
+  margin: 0 0 16px;
+  font-size: 26px;
+  letter-spacing: -0.04em;
+}
+
 .lead {
-  max-width: 760px;
+  max-width: 820px;
   color: #4b5563;
   font-size: 18px;
   line-height: 1.55;
@@ -64,7 +67,7 @@ h1 {
 
 .grid {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: 0.8fr 1.2fr;
   gap: 18px;
   align-items: start;
 }
@@ -89,6 +92,14 @@ h1 {
 
 .card-body {
   padding: 20px;
+}
+
+.text-input {
+  width: 100%;
+  margin: 8px 0 14px;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
 }
 
 textarea {
@@ -137,13 +148,14 @@ button.secondary {
 .stat {
   border-radius: 16px;
   padding: 14px;
-  background: #f9fafb;
-  border: 1px solid #eef2f7;
+  background: white;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 12px 30px rgb(17 24 39 / 5%);
 }
 
 .stat strong {
   display: block;
-  font-size: 26px;
+  font-size: 28px;
 }
 
 .stat span {
@@ -151,41 +163,153 @@ button.secondary {
   font-size: 13px;
 }
 
-.table-wrap {
-  overflow-x: auto;
+.workbench {
+  min-height: 580px;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-th,
-td {
-  padding: 10px;
-  border-bottom: 1px solid #edf0f5;
-  text-align: left;
-  vertical-align: top;
-}
-
-th {
-  color: #374151;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: #fafafa;
-}
-
-.badge {
-  display: inline-flex;
+.workbench-topbar {
+  display: flex;
   align-items: center;
-  border-radius: 999px;
-  padding: 4px 8px;
-  background: #eef2ff;
-  color: #3730a3;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fbfdff;
+}
+
+.workbench-topbar span {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.command-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mini-command {
+  padding: 8px 11px;
   font-size: 12px;
-  font-weight: 800;
+  background: #111827;
+}
+
+.workbench-grid {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr) 250px;
+  min-height: 520px;
+}
+
+.record-list,
+.record-detail,
+.dashboard-pane {
+  padding: 16px;
+}
+
+.record-list,
+.dashboard-pane {
+  background: #f9fafb;
+}
+
+.record-list {
+  border-right: 1px solid #e5e7eb;
+}
+
+.dashboard-pane {
+  border-left: 1px solid #e5e7eb;
+}
+
+.pane-title {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+
+.record-button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border-radius: 14px;
+  background: white;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.record-button.selected {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgb(124 58 237 / 12%);
+}
+
+.record-button strong,
+.record-button span {
+  display: block;
+}
+
+.record-button span {
+  color: #6b7280;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.field-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px;
+  background: #fff;
+}
+
+.field-card span {
+  display: block;
+  color: #6b7280;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.field-card strong {
+  overflow-wrap: anywhere;
+}
+
+.dashboard-block {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.dashboard-block > strong {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.bar-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  padding: 7px 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+.bar-row:first-of-type {
+  border-top: 0;
+}
+
+.bar-row span {
+  color: #4b5563;
 }
 
 pre {
@@ -195,6 +319,20 @@ pre {
   border-radius: 14px;
   background: #0f172a;
   color: #e5e7eb;
+  max-height: 680px;
+  overflow: auto;
+}
+
+@media (max-width: 1100px) {
+  .grid,
+  .workbench-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .record-list,
+  .dashboard-pane {
+    border: 0;
+  }
 }
 
 @media (max-width: 860px) {
@@ -202,8 +340,8 @@ pre {
     padding: 20px;
   }
 
-  .grid,
-  .stat-grid {
+  .stat-grid,
+  .field-grid {
     grid-template-columns: 1fr;
   }
 }
