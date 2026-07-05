@@ -19,6 +19,9 @@ textarea,
 input,
 select {
   font: inherit;
+  box-sizing: content-box;
+  width: 100%;
+
 }
 
 .page {
