@@ -1,0 +1,16 @@
+{
+  "name": "nublox-forge",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter @nublox/studio dev",
+    "build": "pnpm --filter @nublox/studio build",
+    "check": "pnpm --filter @nublox/studio check",
+    "format": "echo \"formatter not configured yet\"",
+    "test": "echo \"tests not configured yet\""
+  }
+}

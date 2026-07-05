@@ -1,0 +1,13 @@
+{
+  "name": "@nublox/rich-client-engine",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@nublox/core": "workspace:*",
+    "@nublox/schema-engine": "workspace:*"
+  }
+}

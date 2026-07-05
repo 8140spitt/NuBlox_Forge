@@ -1,0 +1,27 @@
+{
+  "name": "@nublox/studio",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+  },
+  "dependencies": {
+    "@nublox/core": "workspace:*",
+    "@nublox/import-engine": "workspace:*",
+    "@nublox/schema-engine": "workspace:*",
+    "@nublox/rich-client-engine": "workspace:*",
+    "@sveltejs/adapter-auto": "latest",
+    "@sveltejs/kit": "latest",
+    "@sveltejs/vite-plugin-svelte": "latest",
+    "svelte": "latest",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "svelte-check": "latest",
+    "typescript": "latest"
+  }
+}
