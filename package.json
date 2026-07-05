@@ -12,5 +12,6 @@
     "check": "pnpm --filter @nublox/studio check",
     "format": "echo \"formatter not configured yet\"",
     "test": "echo \"tests not configured yet\""
-  }
+  },
+  "packageManager": "pnpm@11.5.0"
 }
