@@ -85,26 +85,33 @@ export function summariseRecords(appSchema: AppSchema, records: GeneratedRecord[
   const dueDateField = entity.fields.find((field) => field.semanticRole === 'due_date');
   const moneyFields = entity.fields.filter((field) => field.semanticRole === 'money');
 
-  return {
-    totalRecords: records.length,
-    status: statusField
-      ? {
-          fieldName: statusField.name,
-          values: summariseByField(records, statusField.name)
-        }
-      : undefined,
-    overdue: dueDateField
-      ? {
-          fieldName: dueDateField.name,
-          count: countOverdue(records, dueDateField.name, statusField?.name)
-        }
-      : undefined,
-    money: moneyFields.map((field) => ({
+  const summary: RecordSummary = {
+    totalRecords: records.length
+  };
+
+  if (statusField) {
+    summary.status = {
+      fieldName: statusField.name,
+      values: summariseByField(records, statusField.name)
+    };
+  }
+
+  if (dueDateField) {
+    summary.overdue = {
+      fieldName: dueDateField.name,
+      count: countOverdue(records, dueDateField.name, statusField?.name)
+    };
+  }
+
+  if (moneyFields.length > 0) {
+    summary.money = moneyFields.map((field) => ({
       fieldName: field.name,
       label: field.label,
       total: sumNumberField(records, field.name)
-    }))
-  };
+    }));
+  }
+
+  return summary;
 }
 
 export function getRecordDisplayValue(record: GeneratedRecord, field: FieldSchema): string {
