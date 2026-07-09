@@ -1,0 +1,10 @@
+{
+  "name": "@nublox/color",
+  "version": "0.5.0",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./dist/index.ts",
+    "./dist": "./dist/index.ts"
+  }
+}

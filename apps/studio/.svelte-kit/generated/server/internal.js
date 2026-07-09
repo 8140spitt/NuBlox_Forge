@@ -3,7 +3,7 @@ import root from '../root.js';
 import { set_building, set_prerendering } from '$app/env/internal';
 import { set_assets } from '$app/paths/internal/server';
 import { set_manifest, set_read_implementation } from '__sveltekit/server';
-import { set_private_env, set_public_env } from '../../../../../node_modules/.pnpm/@sveltejs+kit@2.69.1_@sveltejs+vite-plugin-svelte@7.1.2_svelte@5.56.4_vite@8.1.3__svelt_13796c5f747f17b248470c09bf1b2197/node_modules/@sveltejs/kit/src/runtime/shared-server.js';
+import { set_private_env, set_public_env } from '../../../../../node_modules/.pnpm/@sveltejs+kit@2.69.1_@sveltejs+vite-plugin-svelte@7.1.2_svelte@5.56.4_vite@8.1.3_@types_82e38a42bfc6c5489b71e191f9bfcb15/node_modules/@sveltejs/kit/src/runtime/shared-server.js';
 import error from '../shared/error-template.js';
 
 export const options = {
@@ -26,7 +26,7 @@ export const options = {
 		app: ({ head, body, assets, nonce, env }) => "<!doctype html>\n<html lang=\"en\">\n  <head>\n    <meta charset=\"utf-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n    " + head + "\n  </head>\n  <body data-sveltekit-preload-data=\"hover\">\n    <div style=\"display: contents\">" + body + "</div>\n  </body>\n</html>\n",
 		error
 	},
-	version_hash: "y9x1az"
+	version_hash: "1vmbsk"
 };
 
 export async function get_hooks() {

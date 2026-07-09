@@ -1,3 +1,7 @@
 {
-	"/": []
+	"/": [],
+	"/api/snapshots": [
+		"src/routes/api/snapshots/+server.ts"
+	],
+	"/colour": []
 }
